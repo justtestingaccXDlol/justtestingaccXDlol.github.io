@@ -1,0 +1,17 @@
+services:
+  - type: web
+    name: binary-site
+    runtime: node
+    plan: free
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /health
+    # Para os dados sobreviverem a redeploys/reinícios, use um plano pago,
+    # descomente o bloco abaixo e defina DATA_DIR:
+    # disk:
+    #   name: data
+    #   mountPath: /var/data
+    #   sizeGB: 1
+    # envVars:
+    #   - key: DATA_DIR
+    #     value: /var/data
