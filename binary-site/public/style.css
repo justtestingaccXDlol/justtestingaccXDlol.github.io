@@ -30,3 +30,5 @@ button.small{padding:5px 10px;font-size:.85rem}
 button.danger{background:#dc2626}
 .hidden{display:none}
 .tag{display:inline-block;background:var(--code);border-radius:8px;padding:2px 8px;font-size:.85rem}
+.langbar{display:flex;justify-content:flex-end;align-items:center;gap:4px;margin-bottom:6px;color:var(--muted)}
+select{padding:6px 8px;border-radius:9px;border:1px solid var(--border);background:var(--card);color:var(--text);font-size:.92rem}

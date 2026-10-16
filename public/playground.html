@@ -2,37 +2,43 @@
 <html lang="en"><head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Playground · Binary Site</title><link rel="stylesheet" href="/style.css">
-</head><body><main>
-<nav><a class="back" href="/">← Home</a></nav>
-<h1>🎮 Playground</h1>
+<script src="/i18n.js"></script>
+</head><body data-title="title.playground"><main>
+<nav><a class="back" href="/" data-i18n="nav.home">← Home</a></nav>
+<h1 data-i18n="pg.h1">🎮 Playground</h1>
 
 <div class="panel">
-  <h3>1. Your ID (SID)</h3>
+  <h3 data-i18n="pg.step1">1. Your ID (SID)</h3>
   <div class="row">
-    <input id="sid" placeholder="e.g. my_id_123" autocomplete="off">
-    <button id="register">Register</button>
-    <button id="random" class="ghost">🎲 Random</button>
+    <input id="sid" data-i18n-ph="pg.sid.ph" placeholder="e.g. my_id_123" autocomplete="off">
+    <button id="register" data-i18n="pg.register">Register</button>
+    <button id="random" class="ghost" data-i18n="pg.random">🎲 Random</button>
   </div>
-  <label>"Random" fills in an available ID for you. Leave it empty when registering to get one automatically. Anyone who knows your ID can read and write your bytes, and IDs unused for 3 days are deleted. Want to keep track of your IDs? <a href="/account.html">Create an account</a>.</label>
+  <label data-i18n-html="pg.help"></label>
 </div>
 
 <div class="panel">
-  <h3>2. Your byte</h3>
-  <div class="row"><label for="idx">Index (0–255):</label><input id="idx" type="number" min="0" max="255" value="0" style="width:90px"></div>
+  <h3 data-i18n="pg.step2">2. Your byte</h3>
+  <div class="row"><label for="idx" data-i18n="pg.index">Index (0–255):</label><input id="idx" type="number" min="0" max="255" value="0" style="width:90px"></div>
   <div class="bits" id="bits"></div>
-  <p>Value: <code id="val">00000000</code></p>
+  <p><span data-i18n="pg.value">Value:</span> <code id="val">00000000</code></p>
   <div class="row">
-    <button id="read">Read</button>
-    <button id="write">Write</button>
-    <button class="ghost" id="all">Read all</button>
+    <button id="read" data-i18n="pg.read">Read</button>
+    <button id="write" data-i18n="pg.write">Write</button>
+    <button class="ghost" id="all" data-i18n="pg.readall">Read all</button>
   </div>
 </div>
 
-<div class="panel"><h3>Response</h3><pre id="log">Nothing yet. Register an ID to get started.</pre></div>
+<div class="panel"><h3 data-i18n="pg.response">Response</h3><pre id="log"></pre></div>
 
 <script>
 const $ = s => document.querySelector(s);
 let bits = Array(8).fill(0);
+let logIsInitial = true;
+
+function setLog(text) { $('#log').textContent = text; logIsInitial = false; }
+function showInitialLog() { $('#log').textContent = t('pg.log.init'); logIsInitial = true; }
+document.addEventListener('langchange', () => { if (logIsInitial) showInitialLog(); });
 
 function renderBits() {
   const el = $('#bits'); el.innerHTML = '';
@@ -52,10 +58,11 @@ async function call(method, url, body, useSid = true) {
   try {
     const r = await fetch(url, { method, headers, body: body ? JSON.stringify(body) : undefined });
     const j = await r.json();
-    $('#log').textContent = `${method} ${url}  →  ${r.status}\n` + JSON.stringify(j, null, 2);
+    if (!r.ok && j.code) j.error = apiError(j); // show the error in the selected language
+    setLog(`${method} ${url}  →  ${r.status}\n` + JSON.stringify(j, null, 2));
     return { ok: r.ok, data: j };
   } catch (e) {
-    $('#log').textContent = 'Network error: ' + e.message;
+    setLog(t('pg.neterr', { msg: e.message }));
     return { ok: false };
   }
 }
@@ -66,12 +73,13 @@ $('#register').onclick = async () => {
   const { ok, data } = await call('POST', '/data/binary/register', sid ? { sid } : {}, false);
   if (ok) { $('#sid').value = data.sid; localStorage.setItem('sid', data.sid); setBits(data.value); }
 };
+$('#random').onclick = async () => { const { ok, data } = await call('GET', '/data/binary/generate', undefined, false); if (ok) $('#sid').value = data.sid; };
 $('#read').onclick = async () => { const { ok, data } = await call('GET', path()); if (ok) setBits(data.value); };
 $('#write').onclick = () => call('POST', path(), { value: bits.join('') });
-$('#random').onclick = async () => { const { ok, data } = await call('GET', '/data/binary/generate', undefined, false); if (ok) $('#sid').value = data.sid; };
 $('#all').onclick = () => call('GET', '/data/binary/all');
 
 $('#sid').value = localStorage.getItem('sid') || '';
 renderBits();
+showInitialLog();
 </script>
 </main></body></html>

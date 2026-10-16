@@ -78,7 +78,7 @@ function rateLimit({ windowMs, max }) {
   return (req, res, next) => {
     const n = (hits.get(req.ip) || 0) + 1;
     hits.set(req.ip, n);
-    if (n > max) return res.status(429).json({ error: 'Too many requests. Please try again shortly.' });
+    if (n > max) return res.status(429).json({ code: 'rate_limited', error: 'Too many requests. Please try again shortly.' });
     next();
   };
 }
@@ -95,12 +95,12 @@ function availableSid(len = 10) {
 
 // Creates a SID (random if none requested). Returns {status, ...}
 function createSid(requested, owner) {
-  if (Object.keys(db.users).length >= MAX_SIDS) return { status: 503, error: 'SID limit reached.' };
+  if (Object.keys(db.users).length >= MAX_SIDS) return { status: 503, code: 'sid_limit', error: 'SID limit reached.' };
   let sid = requested;
   if (sid !== undefined && sid !== null && sid !== '') {
     sid = String(sid);
-    if (!SID_RE.test(sid)) return { status: 400, error: 'Invalid SID: use 3 to 32 characters (letters, numbers, _ or -).' };
-    if (getUser(sid)) return { status: 409, error: 'This SID is already taken. Choose another one.' };
+    if (!SID_RE.test(sid)) return { status: 400, code: 'sid_invalid', error: 'Invalid SID: use 3 to 32 characters (letters, numbers, _ or -).' };
+    if (getUser(sid)) return { status: 409, code: 'sid_taken', error: 'This SID is already taken. Choose another one.' };
   } else {
     sid = availableSid();
   }
@@ -147,7 +147,7 @@ function currentSession(req) {
 
 const requireAuth = (req, res, next) => {
   const s = currentSession(req);
-  if (!s) return res.status(401).json({ error: 'Not logged in.' });
+  if (!s) return res.status(401).json({ code: 'not_logged_in', error: 'Not logged in.' });
   req.account = s.username;
   req.sessionHash = s.hash;
   next();
@@ -179,16 +179,16 @@ const loginLimit = rateLimit({ windowMs: 15 * 60_000, max: 20 });
 acct.post('/signup', signupLimit, async (req, res) => {
   const { username, password } = req.body || {};
   if (typeof username !== 'string' || !USER_RE.test(username))
-    return res.status(400).json({ error: 'Username: 3 to 24 characters (letters, numbers or _).' });
+    return res.status(400).json({ code: 'username_invalid', error: 'Username: 3 to 24 characters (letters, numbers or _).' });
   if (typeof password !== 'string' || password.length < 8 || password.length > 128)
-    return res.status(400).json({ error: 'Password: 8 to 128 characters.' });
+    return res.status(400).json({ code: 'password_invalid', error: 'Password: 8 to 128 characters.' });
   const key = username.toLowerCase();
-  if (has(db.accounts, key)) return res.status(409).json({ error: 'This username is already taken.' });
-  if (Object.keys(db.accounts).length >= MAX_ACCOUNTS) return res.status(503).json({ error: 'Account limit reached.' });
+  if (has(db.accounts, key)) return res.status(409).json({ code: 'username_taken', error: 'This username is already taken.' });
+  if (Object.keys(db.accounts).length >= MAX_ACCOUNTS) return res.status(503).json({ code: 'account_limit', error: 'Account limit reached.' });
 
   const salt = crypto.randomBytes(16).toString('hex');
   const hash = await hashPw(password, salt);
-  if (has(db.accounts, key)) return res.status(409).json({ error: 'This username is already taken.' });
+  if (has(db.accounts, key)) return res.status(409).json({ code: 'username_taken', error: 'This username is already taken.' });
   db.accounts[key] = { username, salt, hash, created: Date.now() };
   startSession(req, res, username);
   res.status(201).json({ username });
@@ -197,11 +197,11 @@ acct.post('/signup', signupLimit, async (req, res) => {
 acct.post('/login', loginLimit, async (req, res) => {
   const { username, password } = req.body || {};
   if (typeof username !== 'string' || typeof password !== 'string')
-    return res.status(400).json({ error: 'Send a username and a password.' });
+    return res.status(400).json({ code: 'creds_missing', error: 'Send a username and a password.' });
   const key = username.toLowerCase();
   const acc = has(db.accounts, key) ? db.accounts[key] : null;
   const hash = await hashPw(password.slice(0, 128), acc ? acc.salt : 'x'.repeat(32)); // same work either way
-  if (!acc || !safeEqual(hash, acc.hash)) return res.status(401).json({ error: 'Wrong username or password.' });
+  if (!acc || !safeEqual(hash, acc.hash)) return res.status(401).json({ code: 'bad_login', error: 'Wrong username or password.' });
   startSession(req, res, acc.username);
   res.json({ username: acc.username });
 });
@@ -225,15 +225,15 @@ acct.get('/me', requireAuth, (req, res) => {
 acct.post('/sids', requireAuth, (req, res) => {
   const owned = Object.values(db.users).filter((u) => u.owner === req.account).length;
   if (owned >= MAX_SIDS_PER_ACCOUNT)
-    return res.status(403).json({ error: `You can have up to ${MAX_SIDS_PER_ACCOUNT} SIDs. Delete one first.` });
+    return res.status(403).json({ code: 'account_sid_cap', error: `You can have up to ${MAX_SIDS_PER_ACCOUNT} SIDs. Delete one first.` });
   const r = createSid(req.body && req.body.sid, req.account);
-  if (r.error) return res.status(r.status).json({ error: r.error });
+  if (r.error) return res.status(r.status).json({ code: r.code, error: r.error });
   res.status(201).json({ sid: r.sid, expiresAt: r.expiresAt });
 });
 
 acct.delete('/sids/:sid', requireAuth, (req, res) => {
   const u = SID_RE.test(req.params.sid) ? getUser(req.params.sid) : null;
-  if (!u || u.owner !== req.account) return res.status(404).json({ error: 'SID not found in your account.' });
+  if (!u || u.owner !== req.account) return res.status(404).json({ code: 'sid_not_in_account', error: 'SID not found in your account.' });
   delete db.users[req.params.sid];
   save();
   res.json({ ok: true });
@@ -247,7 +247,7 @@ const api = express.Router();
 // Register an anonymous ID (optionally choosing your own)
 api.post('/register', rateLimit({ windowMs: 3_600_000, max: 20 }), (req, res) => {
   const r = createSid(req.body && req.body.sid, null);
-  if (r.error) return res.status(r.status).json({ error: r.error });
+  if (r.error) return res.status(r.status).json({ code: r.code, error: r.error });
   res.status(201).json({ sid: r.sid, value: r.value, expiresAt: r.expiresAt });
 });
 
@@ -257,9 +257,9 @@ api.get('/generate', (_req, res) => res.json({ sid: availableSid() }));
 // Authentication via the SID header
 api.use((req, res, next) => {
   const sid = req.get('SID');
-  if (!sid) return res.status(401).json({ error: 'Send your ID in the SID header. E.g.: SID: 1234' });
+  if (!sid) return res.status(401).json({ code: 'sid_header_missing', error: 'Send your ID in the SID header. E.g.: SID: 1234' });
   const user = SID_RE.test(sid) ? getUser(sid) : null;
-  if (!user) return res.status(401).json({ error: 'SID not registered (or deleted after 3 days without use).' });
+  if (!user) return res.status(401).json({ code: 'sid_unknown', error: 'SID not registered (or deleted after 3 days without use).' });
   const now = Date.now();
   if (now - user.lastUsed > 60_000) { user.lastUsed = now; save(); } // using the SID resets its 3-day timer
   req.user = user;
@@ -281,18 +281,18 @@ api.get('/all', (req, res) => {
 // Read one byte (default: index 0)
 api.get(['/', '/:index'], (req, res) => {
   const i = parseIndex(req.params.index);
-  if (i === null) return res.status(400).json({ error: `Invalid index (0 to ${MAX_BYTES_PER_USER - 1}).` });
-  if (i >= req.user.bytes.length) return res.status(404).json({ error: 'This byte has not been written yet.' });
+  if (i === null) return res.status(400).json({ code: 'index_invalid', error: `Invalid index (0 to ${MAX_BYTES_PER_USER - 1}).` });
+  if (i >= req.user.bytes.length) return res.status(404).json({ code: 'byte_unwritten', error: 'This byte has not been written yet.' });
   res.json({ value: req.user.bytes[i] });
 });
 
 // Write one byte (POST or PUT)
 function write(req, res) {
   const i = parseIndex(req.params.index);
-  if (i === null) return res.status(400).json({ error: `Invalid index (0 to ${MAX_BYTES_PER_USER - 1}).` });
+  if (i === null) return res.status(400).json({ code: 'index_invalid', error: `Invalid index (0 to ${MAX_BYTES_PER_USER - 1}).` });
   const value = req.body && req.body.value;
   if (typeof value !== 'string' || !BIN_RE.test(value))
-    return res.status(400).json({ error: 'Invalid body. Send {"value":"01010101"} with exactly 8 bits.' });
+    return res.status(400).json({ code: 'body_invalid', error: 'Invalid body. Send {"value":"01010101"} with exactly 8 bits.' });
   while (req.user.bytes.length <= i) req.user.bytes.push('00000000');
   req.user.bytes[i] = value;
   save();
@@ -305,11 +305,11 @@ app.use('/data/binary', api);
 
 app.use((req, res) => {
   if (req.path.startsWith('/data/') || req.path.startsWith('/account/'))
-    return res.status(404).json({ error: 'Route not found.' });
+    return res.status(404).json({ code: 'route_not_found', error: 'Route not found.' });
   res.status(404).send('Page not found. <a href="/">Go back</a>');
 });
 app.use((err, _req, res, _next) => {
-  res.status(400).json({ error: 'Invalid request (malformed JSON?).' });
+  res.status(400).json({ code: 'bad_request', error: 'Invalid request (malformed JSON?).' });
 });
 
 app.listen(PORT, () => console.log(`Listening on port ${PORT}`));

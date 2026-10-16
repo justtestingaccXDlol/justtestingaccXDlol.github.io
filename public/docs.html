@@ -2,43 +2,44 @@
 <html lang="en"><head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Docs · Binary Site</title><link rel="stylesheet" href="/style.css">
-</head><body><main>
-<nav><a class="back" href="/">← Home</a></nav>
-<h1>📖 Documentation</h1>
-<p class="sub">Each user has a <code>SID</code> and a list of bytes (up to 256). The SID always goes in the request header.</p>
+<script src="/i18n.js"></script>
+</head><body data-title="title.docs"><main>
+<nav><a class="back" href="/" data-i18n="nav.home">← Home</a></nav>
+<h1 data-i18n="dc.h1">📖 Documentation</h1>
+<p class="sub" data-i18n-html="dc.sub"></p>
 
-<h2>Endpoints</h2>
-<table>
-<tr><th>Method</th><th>Route</th><th>What it does</th></tr>
-<tr><td>POST</td><td><code>/data/binary/register</code></td><td>Registers an ID. Optional body: <code>{"sid":"my_id"}</code></td></tr>
-<tr><td>GET</td><td><code>/data/binary/generate</code></td><td>Suggests a random SID that is available right now (not reserved until you register it)</td></tr>
-<tr><td>GET</td><td><code>/data/binary</code></td><td>Reads byte 0 → <code>{"value":"00000000"}</code></td></tr>
-<tr><td>GET</td><td><code>/data/binary/:index</code></td><td>Reads the byte at the given index (0–255)</td></tr>
-<tr><td>GET</td><td><code>/data/binary/all</code></td><td>Reads all your bytes</td></tr>
-<tr><td>POST / PUT</td><td><code>/data/binary[/:index]</code></td><td>Writes <code>{"value":"10101010"}</code> (exactly 8 bits)</td></tr>
-</table>
+<h2 data-i18n="dc.endpoints">Endpoints</h2>
+<div class="scroll"><table>
+<tr><th data-i18n="dc.th.method">Method</th><th data-i18n="dc.th.route">Route</th><th data-i18n="dc.th.what">What it does</th></tr>
+<tr><td>POST</td><td><code>/data/binary/register</code></td><td data-i18n-html="dc.r.register"></td></tr>
+<tr><td>GET</td><td><code>/data/binary/generate</code></td><td data-i18n="dc.r.generate"></td></tr>
+<tr><td>GET</td><td><code>/data/binary</code></td><td data-i18n-html="dc.r.read0"></td></tr>
+<tr><td>GET</td><td><code>/data/binary/:index</code></td><td data-i18n="dc.r.readidx"></td></tr>
+<tr><td>GET</td><td><code>/data/binary/all</code></td><td data-i18n="dc.r.readall"></td></tr>
+<tr><td>POST / PUT</td><td><code>/data/binary[/:index]</code></td><td data-i18n-html="dc.r.write"></td></tr>
+</table></div>
 
-<h2>Expiry and accounts</h2>
-<p>A SID that isn't read or written for <strong>3 days</strong> is deleted along with its bytes. Every request that uses the SID resets the timer. Every SID is unique, so two users can never share one.</p>
-<p>Registering through the API creates an anonymous SID. To see and manage all your SIDs, <a href="/account.html">create an account</a> and create them there.</p>
+<h2 data-i18n="dc.exp.h">Expiry and accounts</h2>
+<p data-i18n-html="dc.exp.p1"></p>
+<p data-i18n-html="dc.exp.p2"></p>
 
 <h2>curl</h2>
 <pre>
 # register
-curl -X POST https://YOUR-APP.onrender.com/data/binary/register \
+curl -X POST <span class="origin">https://your-service.onrender.com</span>/data/binary/register \
   -H "Content-Type: application/json" -d '{"sid":"1234"}'
 
 # write
-curl -X POST https://YOUR-APP.onrender.com/data/binary \
+curl -X POST <span class="origin">https://your-service.onrender.com</span>/data/binary \
   -H "SID: 1234" -H "Content-Type: application/json" -d '{"value":"10101010"}'
 
 # read
-curl https://YOUR-APP.onrender.com/data/binary -H "SID: 1234"
+curl <span class="origin">https://your-service.onrender.com</span>/data/binary -H "SID: 1234"
 </pre>
 
 <h2>JavaScript</h2>
 <pre>
-const r = await fetch("/data/binary/3", {
+const r = await fetch("<span class="origin">https://your-service.onrender.com</span>/data/binary/3", {
   method: "POST",
   headers: { SID: "1234", "Content-Type": "application/json" },
   body: JSON.stringify({ value: "00001111" })
@@ -50,19 +51,19 @@ console.log(await r.json()); // { value: "00001111" }
 <pre>
 local HttpService = game:GetService("HttpService")
 local res = HttpService:RequestAsync({
-  Url = "https://YOUR-APP.onrender.com/data/binary",
+  Url = "<span class="origin">https://your-service.onrender.com</span>/data/binary",
   Method = "GET",
   Headers = { ["SID"] = "1234" },
 })
 print(HttpService:JSONDecode(res.Body).value)
 </pre>
 
-<h2>Common errors</h2>
-<table>
-<tr><td><code>401</code></td><td>Missing SID header, or SID not registered / expired</td></tr>
-<tr><td><code>400</code></td><td>Value is not exactly 8 characters of 0/1, or invalid index</td></tr>
-<tr><td><code>404</code></td><td>That index has not been written yet</td></tr>
-<tr><td><code>409</code></td><td>SID already taken when registering</td></tr>
-<tr><td><code>429</code></td><td>Too many requests (per-IP limit)</td></tr>
-</table>
+<h2 data-i18n="dc.errors.h">Common errors</h2>
+<div class="scroll"><table>
+<tr><td><code>401</code></td><td data-i18n="dc.e401"></td></tr>
+<tr><td><code>400</code></td><td data-i18n="dc.e400"></td></tr>
+<tr><td><code>404</code></td><td data-i18n="dc.e404"></td></tr>
+<tr><td><code>409</code></td><td data-i18n="dc.e409"></td></tr>
+<tr><td><code>429</code></td><td data-i18n="dc.e429"></td></tr>
+</table></div>
 </main></body></html>
