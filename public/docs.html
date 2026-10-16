@@ -1,34 +1,39 @@
 <!doctype html>
-<html lang="pt-BR"><head>
+<html lang="en"><head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Docs · Binary Site</title><link rel="stylesheet" href="/style.css">
 </head><body><main>
-<nav><a class="back" href="/">← Início</a></nav>
-<h1>📖 Documentação</h1>
-<p class="sub">Cada usuário tem um <code>SID</code> e uma lista de bytes (até 256). O SID vai sempre no header da request.</p>
+<nav><a class="back" href="/">← Home</a></nav>
+<h1>📖 Documentation</h1>
+<p class="sub">Each user has a <code>SID</code> and a list of bytes (up to 256). The SID always goes in the request header.</p>
 
 <h2>Endpoints</h2>
 <table>
-<tr><th>Método</th><th>Rota</th><th>O que faz</th></tr>
-<tr><td>POST</td><td><code>/data/binary/register</code></td><td>Registra um ID. Corpo opcional: <code>{"sid":"meu_id"}</code></td></tr>
-<tr><td>GET</td><td><code>/data/binary</code></td><td>Lê o byte 0 → <code>{"value":"00000000"}</code></td></tr>
-<tr><td>GET</td><td><code>/data/binary/:index</code></td><td>Lê o byte do índice (0–255)</td></tr>
-<tr><td>GET</td><td><code>/data/binary/all</code></td><td>Lê todos os seus bytes</td></tr>
-<tr><td>POST / PUT</td><td><code>/data/binary[/:index]</code></td><td>Escreve <code>{"value":"10101010"}</code> (exatamente 8 bits)</td></tr>
+<tr><th>Method</th><th>Route</th><th>What it does</th></tr>
+<tr><td>POST</td><td><code>/data/binary/register</code></td><td>Registers an ID. Optional body: <code>{"sid":"my_id"}</code></td></tr>
+<tr><td>GET</td><td><code>/data/binary/generate</code></td><td>Suggests a random SID that is available right now (not reserved until you register it)</td></tr>
+<tr><td>GET</td><td><code>/data/binary</code></td><td>Reads byte 0 → <code>{"value":"00000000"}</code></td></tr>
+<tr><td>GET</td><td><code>/data/binary/:index</code></td><td>Reads the byte at the given index (0–255)</td></tr>
+<tr><td>GET</td><td><code>/data/binary/all</code></td><td>Reads all your bytes</td></tr>
+<tr><td>POST / PUT</td><td><code>/data/binary[/:index]</code></td><td>Writes <code>{"value":"10101010"}</code> (exactly 8 bits)</td></tr>
 </table>
+
+<h2>Expiry and accounts</h2>
+<p>A SID that isn't read or written for <strong>3 days</strong> is deleted along with its bytes. Every request that uses the SID resets the timer. Every SID is unique, so two users can never share one.</p>
+<p>Registering through the API creates an anonymous SID. To see and manage all your SIDs, <a href="/account.html">create an account</a> and create them there.</p>
 
 <h2>curl</h2>
 <pre>
-# registrar
-curl -X POST https://SEU-APP.onrender.com/data/binary/register \
+# register
+curl -X POST https://YOUR-APP.onrender.com/data/binary/register \
   -H "Content-Type: application/json" -d '{"sid":"1234"}'
 
-# escrever
-curl -X POST https://SEU-APP.onrender.com/data/binary \
+# write
+curl -X POST https://YOUR-APP.onrender.com/data/binary \
   -H "SID: 1234" -H "Content-Type: application/json" -d '{"value":"10101010"}'
 
-# ler
-curl https://SEU-APP.onrender.com/data/binary -H "SID: 1234"
+# read
+curl https://YOUR-APP.onrender.com/data/binary -H "SID: 1234"
 </pre>
 
 <h2>JavaScript</h2>
@@ -45,19 +50,19 @@ console.log(await r.json()); // { value: "00001111" }
 <pre>
 local HttpService = game:GetService("HttpService")
 local res = HttpService:RequestAsync({
-  Url = "https://SEU-APP.onrender.com/data/binary",
+  Url = "https://YOUR-APP.onrender.com/data/binary",
   Method = "GET",
   Headers = { ["SID"] = "1234" },
 })
 print(HttpService:JSONDecode(res.Body).value)
 </pre>
 
-<h2>Erros comuns</h2>
+<h2>Common errors</h2>
 <table>
-<tr><td><code>401</code></td><td>Sem header SID ou SID não registrado</td></tr>
-<tr><td><code>400</code></td><td>Valor que não tem exatamente 8 caracteres 0/1, ou índice inválido</td></tr>
-<tr><td><code>404</code></td><td>Esse índice ainda não foi escrito</td></tr>
-<tr><td><code>409</code></td><td>SID já em uso ao registrar</td></tr>
-<tr><td><code>429</code></td><td>Muitas requisições (limite por IP)</td></tr>
+<tr><td><code>401</code></td><td>Missing SID header, or SID not registered / expired</td></tr>
+<tr><td><code>400</code></td><td>Value is not exactly 8 characters of 0/1, or invalid index</td></tr>
+<tr><td><code>404</code></td><td>That index has not been written yet</td></tr>
+<tr><td><code>409</code></td><td>SID already taken when registering</td></tr>
+<tr><td><code>429</code></td><td>Too many requests (per-IP limit)</td></tr>
 </table>
 </main></body></html>

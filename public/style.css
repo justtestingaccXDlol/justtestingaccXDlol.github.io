@@ -23,3 +23,10 @@ button.ghost{background:var(--code);color:var(--text)}
 label{color:var(--muted);font-size:.9rem}
 #log{min-height:70px;white-space:pre-wrap}
 table{border-collapse:collapse;width:100%}td,th{border-bottom:1px solid var(--border);padding:8px;text-align:left;font-size:.92rem}
+.ok{color:#16a34a}.err{color:#dc2626}
+.msg{min-height:1.4em;margin:6px 0 0;font-size:.92rem}
+.scroll{overflow-x:auto}
+button.small{padding:5px 10px;font-size:.85rem}
+button.danger{background:#dc2626}
+.hidden{display:none}
+.tag{display:inline-block;background:var(--code);border-radius:8px;padding:2px 8px;font-size:.85rem}

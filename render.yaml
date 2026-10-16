@@ -6,8 +6,8 @@ services:
     buildCommand: npm install
     startCommand: npm start
     healthCheckPath: /health
-    # Para os dados sobreviverem a redeploys/reinícios, use um plano pago,
-    # descomente o bloco abaixo e defina DATA_DIR:
+    # To keep data across redeploys/restarts, use a paid plan,
+    # uncomment the block below and set DATA_DIR:
     # disk:
     #   name: data
     #   mountPath: /var/data

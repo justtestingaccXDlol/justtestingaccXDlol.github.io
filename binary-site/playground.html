@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Playground · Binary Site</title><link rel="stylesheet" href="/style.css">
+</head><body><main>
+<nav><a class="back" href="/">← Home</a></nav>
+<h1>🎮 Playground</h1>
+
+<div class="panel">
+  <h3>1. Your ID (SID)</h3>
+  <div class="row">
+    <input id="sid" placeholder="e.g. my_id_123" autocomplete="off">
+    <button id="register">Register</button>
+    <button id="random" class="ghost">🎲 Random</button>
+  </div>
+  <label>"Random" fills in an available ID for you. Leave it empty when registering to get one automatically. Anyone who knows your ID can read and write your bytes, and IDs unused for 3 days are deleted. Want to keep track of your IDs? <a href="/account.html">Create an account</a>.</label>
+</div>
+
+<div class="panel">
+  <h3>2. Your byte</h3>
+  <div class="row"><label for="idx">Index (0–255):</label><input id="idx" type="number" min="0" max="255" value="0" style="width:90px"></div>
+  <div class="bits" id="bits"></div>
+  <p>Value: <code id="val">00000000</code></p>
+  <div class="row">
+    <button id="read">Read</button>
+    <button id="write">Write</button>
+    <button class="ghost" id="all">Read all</button>
+  </div>
+</div>
+
+<div class="panel"><h3>Response</h3><pre id="log">Nothing yet. Register an ID to get started.</pre></div>
+
+<script>
+const $ = s => document.querySelector(s);
+let bits = Array(8).fill(0);
+
+function renderBits() {
+  const el = $('#bits'); el.innerHTML = '';
+  bits.forEach((b, i) => {
+    const btn = document.createElement('button');
+    btn.className = 'bit' + (b ? ' on' : ''); btn.textContent = b;
+    btn.onclick = () => { bits[i] ^= 1; renderBits(); };
+    el.append(btn);
+  });
+  $('#val').textContent = bits.join('');
+}
+function setBits(str) { bits = str.split('').map(Number); renderBits(); }
+
+async function call(method, url, body, useSid = true) {
+  const headers = { 'Content-Type': 'application/json' };
+  if (useSid) headers.SID = $('#sid').value.trim();
+  try {
+    const r = await fetch(url, { method, headers, body: body ? JSON.stringify(body) : undefined });
+    const j = await r.json();
+    $('#log').textContent = `${method} ${url}  →  ${r.status}\n` + JSON.stringify(j, null, 2);
+    return { ok: r.ok, data: j };
+  } catch (e) {
+    $('#log').textContent = 'Network error: ' + e.message;
+    return { ok: false };
+  }
+}
+const path = () => '/data/binary/' + (parseInt($('#idx').value) || 0);
+
+$('#register').onclick = async () => {
+  const sid = $('#sid').value.trim();
+  const { ok, data } = await call('POST', '/data/binary/register', sid ? { sid } : {}, false);
+  if (ok) { $('#sid').value = data.sid; localStorage.setItem('sid', data.sid); setBits(data.value); }
+};
+$('#read').onclick = async () => { const { ok, data } = await call('GET', path()); if (ok) setBits(data.value); };
+$('#write').onclick = () => call('POST', path(), { value: bits.join('') });
+$('#random').onclick = async () => { const { ok, data } = await call('GET', '/data/binary/generate', undefined, false); if (ok) $('#sid').value = data.sid; };
+$('#all').onclick = () => call('GET', '/data/binary/all');
+
+$('#sid').value = localStorage.getItem('sid') || '';
+renderBits();
+</script>
+</main></body></html>

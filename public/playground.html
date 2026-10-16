@@ -1,33 +1,34 @@
 <!doctype html>
-<html lang="pt-BR"><head>
+<html lang="en"><head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Playground · Binary Site</title><link rel="stylesheet" href="/style.css">
 </head><body><main>
-<nav><a class="back" href="/">← Início</a></nav>
+<nav><a class="back" href="/">← Home</a></nav>
 <h1>🎮 Playground</h1>
 
 <div class="panel">
-  <h3>1. Seu ID (SID)</h3>
+  <h3>1. Your ID (SID)</h3>
   <div class="row">
-    <input id="sid" placeholder="ex.: meu_id_123" autocomplete="off">
-    <button id="register">Registrar</button>
+    <input id="sid" placeholder="e.g. my_id_123" autocomplete="off">
+    <button id="register">Register</button>
+    <button id="random" class="ghost">🎲 Random</button>
   </div>
-  <label>Deixe em branco ao registrar para gerar um ID aleatório (mais seguro). Quem souber seu ID pode ler e escrever nos seus bytes.</label>
+  <label>"Random" fills in an available ID for you. Leave it empty when registering to get one automatically. Anyone who knows your ID can read and write your bytes, and IDs unused for 3 days are deleted. Want to keep track of your IDs? <a href="/account.html">Create an account</a>.</label>
 </div>
 
 <div class="panel">
-  <h3>2. Seu byte</h3>
-  <div class="row"><label for="idx">Índice (0–255):</label><input id="idx" type="number" min="0" max="255" value="0" style="width:90px"></div>
+  <h3>2. Your byte</h3>
+  <div class="row"><label for="idx">Index (0–255):</label><input id="idx" type="number" min="0" max="255" value="0" style="width:90px"></div>
   <div class="bits" id="bits"></div>
-  <p>Valor: <code id="val">00000000</code></p>
+  <p>Value: <code id="val">00000000</code></p>
   <div class="row">
-    <button id="read">Ler</button>
-    <button id="write">Escrever</button>
-    <button class="ghost" id="all">Ler todos</button>
+    <button id="read">Read</button>
+    <button id="write">Write</button>
+    <button class="ghost" id="all">Read all</button>
   </div>
 </div>
 
-<div class="panel"><h3>Resposta</h3><pre id="log">Nada ainda. Registre um ID para começar.</pre></div>
+<div class="panel"><h3>Response</h3><pre id="log">Nothing yet. Register an ID to get started.</pre></div>
 
 <script>
 const $ = s => document.querySelector(s);
@@ -54,7 +55,7 @@ async function call(method, url, body, useSid = true) {
     $('#log').textContent = `${method} ${url}  →  ${r.status}\n` + JSON.stringify(j, null, 2);
     return { ok: r.ok, data: j };
   } catch (e) {
-    $('#log').textContent = 'Erro de rede: ' + e.message;
+    $('#log').textContent = 'Network error: ' + e.message;
     return { ok: false };
   }
 }
@@ -67,6 +68,7 @@ $('#register').onclick = async () => {
 };
 $('#read').onclick = async () => { const { ok, data } = await call('GET', path()); if (ok) setBits(data.value); };
 $('#write').onclick = () => call('POST', path(), { value: bits.join('') });
+$('#random').onclick = async () => { const { ok, data } = await call('GET', '/data/binary/generate', undefined, false); if (ok) $('#sid').value = data.sid; };
 $('#all').onclick = () => call('GET', '/data/binary/all');
 
 $('#sid').value = localStorage.getItem('sid') || '';

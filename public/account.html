@@ -1,0 +1,150 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>My SIDs · Binary Site</title><link rel="stylesheet" href="/style.css">
+</head><body><main>
+<nav><a class="back" href="/">← Home</a></nav>
+<h1>👤 My SIDs</h1>
+<p class="sub">Create an account to see and manage all the SIDs you created.</p>
+
+<section id="guest" class="panel hidden">
+  <h3>Log in or create an account</h3>
+  <div class="row">
+    <input id="user" placeholder="Username" autocomplete="username" maxlength="24">
+    <input id="pass" type="password" placeholder="Password (min. 8)" autocomplete="current-password" maxlength="128">
+  </div>
+  <div class="row">
+    <button id="login">Log in</button>
+    <button id="signup" class="ghost">Create account</button>
+  </div>
+  <p id="authMsg" class="msg"></p>
+  <label>Usernames: 3–24 letters, numbers or _. Don't reuse an important password: this is a small hobby project.</label>
+</section>
+
+<section id="app" class="hidden">
+  <div class="row" style="justify-content:space-between">
+    <h2 style="margin:0">Hi, <span id="who"></span> 👋</h2>
+    <button id="logout" class="ghost small">Log out</button>
+  </div>
+
+  <div class="panel">
+    <h3>Create a SID</h3>
+    <div class="row">
+      <input id="newSid" placeholder="Choose your own, e.g. my_id_123" autocomplete="off" maxlength="32">
+      <button id="create">Create</button>
+    </div>
+    <div class="row">
+      <button id="suggest" class="ghost">🎲 Suggest a random one</button>
+      <span id="suggestBox" class="hidden">
+        <code id="suggested"></code>
+        <button id="useIt" class="small">Use this one</button>
+        <button id="another" class="ghost small">Another</button>
+      </span>
+    </div>
+    <p id="createMsg" class="msg"></p>
+    <label>Every SID is unique: two people can never share one. A suggested SID is only reserved when you click "Use this one".</label>
+  </div>
+
+  <div class="panel">
+    <h3>Your SIDs <span id="count" class="tag"></span></h3>
+    <div class="scroll"><table id="table">
+      <thead><tr><th>SID</th><th>Created</th><th>Last used</th><th>Expires in</th><th></th></tr></thead>
+      <tbody id="rows"></tbody>
+    </table></div>
+    <p id="empty" class="hidden">No SIDs yet. Create one above.</p>
+    <label>A SID that isn't used for <span id="ttl">3</span> days is deleted automatically. Any read or write with it resets the timer.</label>
+  </div>
+</section>
+
+<script>
+const $ = s => document.querySelector(s);
+let offset = 0, suggestion = null;
+
+async function api(method, url, body) {
+  const r = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: body ? JSON.stringify(body) : undefined });
+  let data = {}; try { data = await r.json(); } catch (_) {}
+  return { ok: r.ok, status: r.status, data };
+}
+function msg(el, text, ok) { el.textContent = text; el.className = 'msg ' + (ok ? 'ok' : 'err'); }
+const now = () => Date.now() + offset;
+function ago(ms) {
+  const s = Math.max(0, Math.floor((now() - ms) / 1000));
+  if (s < 60) return 'just now';
+  if (s < 3600) return Math.floor(s / 60) + ' min ago';
+  if (s < 86400) return Math.floor(s / 3600) + ' h ago';
+  return Math.floor(s / 86400) + ' d ago';
+}
+function left(ms) {
+  const d = ms - now();
+  if (d <= 0) return 'expired';
+  const h = Math.floor(d / 3600000);
+  if (h >= 24) return Math.floor(h / 24) + 'd ' + (h % 24) + 'h';
+  if (h >= 1) return h + 'h';
+  return Math.max(1, Math.floor(d / 60000)) + ' min';
+}
+
+async function load() {
+  const r = await api('GET', '/account/me');
+  $('#guest').classList.toggle('hidden', r.ok);
+  $('#app').classList.toggle('hidden', !r.ok);
+  if (!r.ok) return;
+  const d = r.data;
+  offset = d.now - Date.now();
+  $('#who').textContent = d.username;
+  $('#ttl').textContent = d.ttlDays;
+  $('#count').textContent = d.sids.length + ' / ' + d.maxSids;
+  $('#empty').classList.toggle('hidden', d.sids.length > 0);
+  $('#table').classList.toggle('hidden', d.sids.length === 0);
+  const rows = $('#rows'); rows.innerHTML = '';
+  for (const s of d.sids) {
+    const tr = document.createElement('tr');
+    const cells = [s.sid, ago(s.created), ago(s.lastUsed), left(s.expiresAt)];
+    cells.forEach((t, i) => {
+      const td = document.createElement('td');
+      if (i === 0) { const c = document.createElement('code'); c.textContent = t; td.append(c); } else td.textContent = t;
+      tr.append(td);
+    });
+    const td = document.createElement('td');
+    const copy = document.createElement('button'); copy.className = 'ghost small'; copy.textContent = 'Copy';
+    copy.onclick = async () => { await navigator.clipboard.writeText(s.sid); copy.textContent = 'Copied!'; setTimeout(() => copy.textContent = 'Copy', 1200); };
+    const del = document.createElement('button'); del.className = 'danger small'; del.textContent = 'Delete'; del.style.marginLeft = '6px';
+    del.onclick = async () => {
+      if (!confirm('Delete SID "' + s.sid + '" and all its bytes? This cannot be undone.')) return;
+      const x = await api('DELETE', '/account/sids/' + encodeURIComponent(s.sid));
+      if (!x.ok) msg($('#createMsg'), x.data.error || 'Could not delete.', false);
+      load();
+    };
+    td.append(copy, del); tr.append(td); rows.append(tr);
+  }
+}
+
+async function auth(kind) {
+  const r = await api('POST', '/account/' + kind, { username: $('#user').value.trim(), password: $('#pass').value });
+  if (!r.ok) return msg($('#authMsg'), r.data.error || 'Something went wrong.', false);
+  $('#pass').value = ''; msg($('#authMsg'), '', true); load();
+}
+$('#login').onclick = () => auth('login');
+$('#signup').onclick = () => auth('signup');
+$('#pass').addEventListener('keydown', e => { if (e.key === 'Enter') auth('login'); });
+$('#logout').onclick = async () => { await api('POST', '/account/logout'); load(); };
+
+async function createSid(sid) {
+  const r = await api('POST', '/account/sids', sid ? { sid } : {});
+  if (!r.ok) return msg($('#createMsg'), r.data.error || 'Could not create.', false);
+  msg($('#createMsg'), 'Created: ' + r.data.sid, true);
+  $('#newSid').value = ''; $('#suggestBox').classList.add('hidden'); suggestion = null; load();
+}
+$('#create').onclick = () => createSid($('#newSid').value.trim());
+
+async function suggest() {
+  const r = await api('GET', '/data/binary/generate');
+  if (!r.ok) return msg($('#createMsg'), 'Could not get a suggestion.', false);
+  suggestion = r.data.sid; $('#suggested').textContent = suggestion; $('#suggestBox').classList.remove('hidden');
+}
+$('#suggest').onclick = suggest;
+$('#another').onclick = suggest;
+$('#useIt').onclick = () => createSid(suggestion);
+
+load();
+</script>
+</main></body></html>

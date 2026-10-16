@@ -1,7 +1,7 @@
 {
   "name": "binary-site",
   "version": "1.0.0",
-  "description": "Site com API /data/binary (bytes de 8 bits por usuário)",
+  "description": "Site with a /data/binary API (per-user 8-bit bytes)",
   "main": "server.js",
   "scripts": { "start": "node server.js" },
   "engines": { "node": ">=18" },
